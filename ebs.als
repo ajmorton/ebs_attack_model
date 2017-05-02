@@ -1,6 +1,6 @@
 // ===========================================================================
 // SWEN90010 2017 - Assignment 3 Submission
-// by <FILL IN YOUR NAMES HERE>
+// by Andrew Morton and Bishal Sapkota
 // ===========================================================================
 
 module ebs
