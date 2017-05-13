@@ -68,11 +68,13 @@ pred Init[s : State] {
 
 // Models the action in which the Engine is turned on, causing
 // the EngineOn message to be sent on the CAN Bus
-// Precondition: engine is off
-// Postcondition: CAN Bus now contains the EngineOn message
-//                Engine is now On
-//                last_action is SendEngineOn
-//                and nothing else changes
+// Precondition: 
+//		engine_mode is ModeOff
+// Postcondition: 
+//		bus now contains the EngineOn message
+//    engine_mode is now ModeOn
+//    last_action is SendEngineOn
+//    and nothing else changes
 pred send_engine_on[s, s' : State] {
   s.engine_mode = ModeOff and
   s'.bus = s.bus + EngineOnMessage and
@@ -88,26 +90,24 @@ pred send_engine_on[s, s' : State] {
 // and the message to be removed from the CAN Bus
 // Precondition: 
 //		bus contains EngineOnMessage
-//		ebs_mode is ModeOff
-//****		engine_mode is ModeOn *** ignore in naïve model
-//****		last_action is SendEngineOn ****
-//		
+//		ebs_mode is ModeOff		
 // Postcondition: 
 //		bus is now empty
-//		ebs_mode is ModeOn
+//		ebs_mode is now ModeOn
 //		last_action is RecvEngineOn
-//   and nothing else changes
+//    and nothing else changes
 pred recv_engine_on[s, s' : State] {
-  // preconditions
+ 
+ // preconditions
 	s.bus         = EngineOnMessage and
 	s.ebs_mode    = ModeOff         and
 
-	// post changes
+	// postcondition changes
 	s'.bus         = s.bus - EngineOnMessage and
 	s'.ebs_mode    = ModeOn                  and
 	s'.last_action = RecvEngineOn            and
 
-	// post not changed
+	// postcondition unchanged
 	s'.foot_pressure  = s.foot_pressure  and 
 	s'.engine_mode    = s.engine_mode    and
 	s'.brake_pressure = s.brake_pressure
@@ -119,9 +119,8 @@ pred recv_engine_on[s, s' : State] {
 // foot pressure applied to the brake.
 // Precondition: 
 //		bus is empty
-//		note: we chose not to include eng/ebs mode on as that is covered  by recvBPupdate
 // Postcondition: 
-//		bus now contains BrakePressureUpdateMessage, w/ specified pressure equal to init foot_pressure
+//		bus now contains BrakePressureUpdateMessage, with correct pressure field
 //		last_action is SendBrakePressureUpdate
 //    and nothing else changes
 pred send_brake_pressure_update[s, s' : State] {
@@ -129,12 +128,10 @@ pred send_brake_pressure_update[s, s' : State] {
 	no s.bus and
 	
 	// postconditions changes
-	// **** SYYYNTAXXXX
 	let msg = BrakePressureUpdateMessage | 
 	msg.pressure = s.foot_pressure and
-
 	s'.bus = msg and
-
+	
 	s'.last_action = SendBrakePressureUpdate and 
 
 	// postcondition same
@@ -159,13 +156,12 @@ pred send_brake_pressure_update[s, s' : State] {
 //    last_action is RecvBrakePressureUpdate
 //    and nothing else changes
 pred recv_brake_pressure_update[s, s' : State] {
-  // pre
+  
+	// preconditions
 	s.bus = BrakePressureUpdateMessage and
-	s.last_action = SendBrakePressureUpdate and
 
-	// post changes
+	// postcondition changes
 	s'.bus = s.bus - BrakePressureUpdateMessage and
-	
 	s'.last_action = RecvBrakePressureUpdate and
 
 	// post unchanged
@@ -173,17 +169,22 @@ pred recv_brake_pressure_update[s, s' : State] {
 	s'.engine_mode = s.engine_mode and
 	s'.ebs_mode = s.ebs_mode and
 	
-	((s.ebs_mode = ModeOn  and s'.brake_pressure = s.bus.pressure ) or
-	(s.ebs_mode = ModeOff and s'.brake_pressure = s.brake_pressure))
+	// brake_pressure update rules, update if ebs_mode is on, otherwise don't
+	(
+		(s.ebs_mode = ModeOn  and s'.brake_pressure = s.bus.pressure ) or
+		(s.ebs_mode = ModeOff and s'.brake_pressure = s.brake_pressure)
+	)
 
 }
 
 // Models the action in which the amount of foot pressure applied by the
 // driver to the brake pedal changes
-// Precondition: none
-// Postcondition: foot pressure changes arbitrarily (is totally unconstrained)
-//                last_action is ChangeFootPressure
-//                and nothing else changes
+// Precondition: 
+//		none
+// Postcondition: 
+//		foot_pressure changes arbitrarily (is totally unconstrained)
+//    last_action is ChangeFootPressure
+//    and nothing else changes
 pred change_foot_pressure[s, s' : State] {
   s'.ebs_mode = s.ebs_mode and
   s'.engine_mode = s.engine_mode and
@@ -198,23 +199,22 @@ pred change_foot_pressure[s, s' : State] {
 // The only part of the system state that the attacker can possibly change
 // is that of the CAN Bus. 
 //
-// NOTE: In the initial template you are given, the attacker
-// is modelled as being able to modify the bus contents arbitrarily.
-// Howeever, for later parts of the assignment you will change this definition
-// to only permit certain kinds of modifications to the state of the CAN Bus.
-// When doing so, ensure you update the following line that describes the
-// attacker's abilities.
-//
 // Attacker's abilities: 
-//		can reset bus to any previous bus message
+//		Can utilise replay attack by changing the bus to any previous message,
+//		or can delete messages from the bus
 //
-// Precondition: none
-// Postcondition: bus state changes in accordance with attacker's abilities
-//                last_action is AttackerAction
-//                and nothing else changes
+// Precondition: 
+//		none
+// Postcondition: 
+//		bus contains a previous message, or is now empty
+//    last_action is AttackerAction
+//    and nothing else changes
 pred attacker_action[s, s' : State] {
+
+	// attacker capabilities, replay a previous message or delete message from bus
 	(s'.bus in ord/prevs[s].bus or
  	 no s'.bus) and
+
   s'.ebs_mode = s.ebs_mode and
   s'.brake_pressure = s.brake_pressure and
   s'.foot_pressure = s.foot_pressure and
@@ -270,8 +270,10 @@ check ebs_never_off_after_on for 5 expect 0
 
 // Specifies a simple safety property taken from the Assignment 1 requirements
 // about when the recv_brake_pressure_update action is allowed to occur
+
+// From assignment 1: If the EBS is off then brake pressure is always at max. 
+// This predicate models that.
 pred recv_brake_pressure_update_safety [s : State] {
-// TODO add a comment to justify 
   s.ebs_mode = ModeOff implies s.brake_pressure = MaxBrakePressure
 }
 
@@ -285,7 +287,8 @@ assert recv_brake_pressure_update_safe {
 // NOTE: you will want to use smaller thresholds if getting
 //       counterexamples, so you can interpret them
 check recv_brake_pressure_update_safe for 10
-// <FILL IN HERE: does the assertion hold? why / why not?>
+// The assertion holds as this functionality was modeled explicitly into 
+// recv_brake_update_message. 
 
 
 // Describes a basic sanity condition of the system: the EBS should be in
@@ -312,7 +315,11 @@ assert inv_always {
 // NOTE: you will want to use smaller thresholds if getting
 //       counterexamples, so you can interpret them
 check inv_always for 15
-// <EXPAND ON THIS> Atacker can turn on EBS w/o engine being on
+// The assertion didn't hold pre MACing, but afterwards does. 
+// This is because the attacker can no longer fabricate an engineOn message 
+// while the engine is still off. Post MACing an engineOn message can only 
+// come from turning the engine on
+
 
 
 // Gives a precise enough specification of what value the brake_pressure field
@@ -320,14 +327,29 @@ check inv_always for 15
 // so that attacks under the updated attacker model (see the Assignment 3
 // instructions) can be diagnosed by Alloy
 //
-// <FILL IN HERE (describe your predicate)>
+// The predicate verifies that any changes to the bus are correct:
+// - adding a BrakePressureUpdate message (BPUmsg) to the bus requires that 
+//	 the pressure field is equal to the last state's foot_pressure
+// - removing a BPUmsg from the bus requires modification of the brake_pressure, 
+//   or not, depending on the current ebs_mode
+// - Finally, any changes between an EngineOnMessage and no message are also valid.
+//	 This final statement has no relation to correct pressure, but is needed for 
+//	 the predicate to hold 
+//
+// The predicate holds only if correct values are written to the bus 
+// and correct values are read from the bus.
+// This, by the transitive property, requires that the correct foot_pressure 
+// is ultimately transferred to the brake_pressure. The correct foot_pressure 
+// must be transferred to the bus, and the correct brake_pressure must be 
+// transferred from the bus.
+ 
 assert brake_at_correct_pressure {
 	  all s : State | all s' : ord/next[s] | 
 		s'.bus != s.bus implies
 			(
+				(no s.bus and s'.bus.pressure = s.foot_pressure)  or	  // valid BPUmsg addition
 				(s.ebs_mode = ModeOn  and no s'.bus and s'.brake_pressure = s.bus.pressure) or   // valid BPUmsg removal ModeOn 
 				(s.ebs_mode = ModeOff and no s'.bus and s'.brake_pressure = s.brake_pressure) or // valid BPUmsg removal ModeOff
-				(no s.bus and s'.bus.pressure = s.foot_pressure)  or	  // valid BPUmsg addition
 				(s.bus + s'.bus = EngineOnMessage) 										  // valid EngineOn process
 			)
 }
@@ -337,9 +359,41 @@ check brake_at_correct_pressure for 3 but 8 State
 
 // Attacks still permitted by the updated attacker model:
 // 
-// <FILL IN HERE>
+// Replay attacks (resending old MACed bus messages) are still possible for the 
+// attacker, although detectable by Alloy via brake_at_correct_pressure.
+// These would allow an attacker to apply the brakes (or not) at inopportune 
+// times for the driver.
+//
+// Unwanted deletion of messages from the bus is still possible; 
+// Currently only deletion of BrakePressureUpdate messages is detected by Alloy 
+// (via brake_at_correct_pressure), but a small extension to the predicate could
+// identify deletions of an EngineOn message also
+//
+// A form of DDoS attack could also be implemented by the attacker: continually 
+// placing a message on the bus such that the system cannot add their own messages.
+// This is once again only detectable for BrakePressureUpdate messages in Alloy.
 
 
 // Relationship to our HAZOP study:
 //
-// <FILL IN HERE>
+// Which attacks are covered by our HAZOP?
+//	- Replay attacks
+//		Broadly covered by line item 115 "Messages are sent without action by a principal"
+//		Although Replay attacks were not specificly considered when writing the item
+//
+//	- Deletion
+//		One again broadly covered by line item 109 "No message is sent". 
+//		The difference between a message being sent, then deleted before being recieved, 
+//		and a message not being sent at all is largely semantic. In the context of 
+//		the Ada system  
+//
+//	- DDoS
+//		Denial of service was not accounted for. Some items of similar effect 
+//		(109 above, 110 "Too many messages sent", and 115 above) are present.
+//
+// New hazards discovered by this model:
+//	- DDoS
+//		A DDoS attack doesn't fit cleanly into a particular guideword. 
+//		It either qualifies as a NONE (as no message can be added to the bus), 
+// 		or as a MORE (due to too many messages being added to the bus), or 
+//		perhaps even OTHER THAN (messages other than the intended are sent to the bus).
