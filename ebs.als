@@ -322,7 +322,14 @@ check inv_always for 15
 //
 // <FILL IN HERE (describe your predicate)>
 assert brake_at_correct_pressure {
-  // <FILL IN HERE>
+	  all s : State | all s' : ord/next[s] | 
+		s'.bus != s.bus implies
+			(
+				(s.ebs_mode = ModeOn  and no s'.bus and s'.brake_pressure = s.bus.pressure) or   // valid BPUmsg removal ModeOn 
+				(s.ebs_mode = ModeOff and no s'.bus and s'.brake_pressure = s.brake_pressure) or // valid BPUmsg removal ModeOff
+				(no s.bus and s'.bus.pressure = s.foot_pressure)  or	  // valid BPUmsg addition
+				(s.bus + s'.bus = EngineOnMessage) 										  // valid EngineOn process
+			)
 }
 
 // NOTE: you will want to adjust these thresholds for your own use
