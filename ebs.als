@@ -1,6 +1,6 @@
 // ===========================================================================
 // SWEN90010 2017 - Assignment 3 Submission
-// by Andrew Morton and Bishal Sapkota
+// by Andrew Morton 522139, Bishal Sapkota 854950 
 // ===========================================================================
 
 module ebs
@@ -86,34 +86,96 @@ pred send_engine_on[s, s' : State] {
 // Models the action in which the EngineOn message is received by the
 // Brake Controller, causing the EBS system's mode to change from Off to On
 // and the message to be removed from the CAN Bus
-// Precondition: <FILL IN HERE>
-// Postcondition: <FILL IN HERE>
-//                last_action is RecvEngineOn
-//                and nothing else changes
+// Precondition: 
+//		bus contains EngineOnMessage
+//		ebs_mode is ModeOff
+//****		engine_mode is ModeOn *** ignore in naïve model
+//****		last_action is SendEngineOn ****
+//		
+// Postcondition: 
+//		bus is now empty
+//		ebs_mode is ModeOn
+//		last_action is RecvEngineOn
+//   and nothing else changes
 pred recv_engine_on[s, s' : State] {
-  // <FILL IN HERE>
+  // preconditions
+	s.bus         = EngineOnMessage and
+	s.ebs_mode    = ModeOff         and
+
+	// post changes
+	s'.bus         = s.bus - EngineOnMessage and
+	s'.ebs_mode    = ModeOn                  and
+	s'.last_action = RecvEngineOn            and
+
+	// post not changed
+	s'.foot_pressure  = s.foot_pressure  and 
+	s'.engine_mode    = s.engine_mode    and
+	s'.brake_pressure = s.brake_pressure
+
 }
 
 // Models the action in which a BrakePressureUpdate CAN Bus message is sent
-// from the brake pedal to the Brake Controller, containing the current
+// from the brake pedal onto the CAN Bus, containing the current
 // foot pressure applied to the brake.
-// Precondition: <FILL IN HERE>
-// Postcondition: <FILL IN HERE>
-//                last_action is SendBrakePressureUpdate
-//                and nothing else changes
+// Precondition: 
+//		bus is empty
+//		note: we chose not to include eng/ebs mode on as that is covered  by recvBPupdate
+// Postcondition: 
+//		bus now contains BrakePressureUpdateMessage, w/ specified pressure equal to init foot_pressure
+//		last_action is SendBrakePressureUpdate
+//    and nothing else changes
 pred send_brake_pressure_update[s, s' : State] {
-  // <FILL IN HERE>
+  //preconditions
+	no s.bus and
+	
+	// postconditions changes
+	// **** SYYYNTAXXXX
+	let msg = BrakePressureUpdateMessage | 
+	msg.pressure = s.foot_pressure and
+
+	s'.bus = msg and
+
+	s'.last_action = SendBrakePressureUpdate and 
+
+	// postcondition same
+	s'.ebs_mode = s.ebs_mode and
+	s'.foot_pressure = s.foot_pressure and
+	s'.engine_mode = s.engine_mode and
+	s'.brake_pressure = s.brake_pressure
+
 }
 
 // Models the action in which a BrakePressureUpdate CAN Bus message is received
 // by the Brake Controller, causing the current brake pressure to be updated
 // to that contained in the message and the message to be removed from the bus.
-// Precondition: <FILL IN HERE>
-// Postcondition: <FILL IN HERE>
-//                last_action is RecvBrakePressureUpdate
-//                and nothing else changes
+// Precondition: 
+//		bus contains BrakePressureUpdateMessage
+//		ebs_mode is ModeOn
+//		last_action is SendBrakePressureUpdate
+
+// Postcondition: 
+//		bus is now empty
+//		brake_pressure is now s.bus.pressure
+//    last_action is RecvBrakePressureUpdate
+//    and nothing else changes
 pred recv_brake_pressure_update[s, s' : State] {
-  // <FILL IN HERE>
+  // pre
+	s.bus = BrakePressureUpdateMessage and
+	s.last_action = SendBrakePressureUpdate and
+
+	// post changes
+	s'.bus = s.bus - BrakePressureUpdateMessage and
+	
+	s'.last_action = RecvBrakePressureUpdate and
+
+	// post unchanged
+	s'.foot_pressure = s.foot_pressure and
+	s'.engine_mode = s.engine_mode and
+	s'.ebs_mode = s.ebs_mode and
+	
+	((s.ebs_mode = ModeOn  and s'.brake_pressure = s.bus.pressure ) or
+	(s.ebs_mode = ModeOff and s'.brake_pressure = s.brake_pressure))
+
 }
 
 // Models the action in which the amount of foot pressure applied by the
@@ -143,14 +205,16 @@ pred change_foot_pressure[s, s' : State] {
 // When doing so, ensure you update the following line that describes the
 // attacker's abilities.
 //
-// Attacker's abilities: can modify CAN Bus contents artibrarily
-//                       <UPDATE HERE>
+// Attacker's abilities: 
+//		can reset bus to any previous bus message
 //
 // Precondition: none
 // Postcondition: bus state changes in accordance with attacker's abilities
 //                last_action is AttackerAction
 //                and nothing else changes
 pred attacker_action[s, s' : State] {
+	(s'.bus in ord/prevs[s].bus or
+ 	 no s'.bus) and
   s'.ebs_mode = s.ebs_mode and
   s'.brake_pressure = s.brake_pressure and
   s'.foot_pressure = s.foot_pressure and
@@ -201,13 +265,14 @@ assert ebs_never_off_after_on {
      s.ebs_mode = ModeOn implies s'.ebs_mode = ModeOn
 }
 
-check ebs_never_off_after_on for 10 expect 0
+check ebs_never_off_after_on for 5 expect 0
 
 
 // Specifies a simple safety property taken from the Assignment 1 requirements
 // about when the recv_brake_pressure_update action is allowed to occur
 pred recv_brake_pressure_update_safety [s : State] {
-  // <FILL IN HERE>
+// TODO add a comment to justify 
+  s.ebs_mode = ModeOff implies s.brake_pressure = MaxBrakePressure
 }
 
 // Asserts that the above property always holds whenever recv_brake_pressure
@@ -227,13 +292,13 @@ check recv_brake_pressure_update_safe for 10
 // the On mode only when the Engine is also in the On mode. This condition
 // should be true in all states of the system, i.e. it should be an "invariant"
 pred inv[s : State] {
-// <FILL IN HERE>
+	s.ebs_mode = ModeOn implies s.engine_mode = ModeOn
 }
 
 // Specifies that the invariant "inv" above should be true in all states
 // of all execution traces of the system
 assert inv_always {
-  inv[ord/first] and inv[ord/nexts[ord/first]]
+  inv[ord/first] and all s : ord/nexts[ord/first] | inv[s]
   // NOTE (as a curiosity): the above is equivalent to saying
   // all s : State | inv[s]
   // This is because when checking this assertion, the linear order
@@ -247,7 +312,7 @@ assert inv_always {
 // NOTE: you will want to use smaller thresholds if getting
 //       counterexamples, so you can interpret them
 check inv_always for 15
-// <FILL IN HERE: does the assertion hold? why / why not?>
+// <EXPAND ON THIS> Atacker can turn on EBS w/o engine being on
 
 
 // Gives a precise enough specification of what value the brake_pressure field
