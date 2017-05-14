@@ -1,12 +1,12 @@
-// ==========================================================
+// ===========================================================================
 // SWEN90010 2017 - Assignment 3 Submission
 // by Andrew Morton 522139, Bishal Sapkota 854950 
-// ==========================================================
+// ===========================================================================
 
 module ebs
 open util/ordering[State] as ord
 
-// =========================== System State ======================
+// =========================== System State ==================================
 // an abstract signature for CAN Bus messages
 abstract sig Message {}
 
@@ -52,7 +52,7 @@ fact {
   all s : State | lone s.bus
 }
 
-// =========================== Initial State ========================
+// =========================== Initial State =================================
 
 // The initial state of the system:
 //   - empty CAN Bus, 
@@ -64,7 +64,7 @@ pred Init[s : State] {
   no s.last_action
 }
 
-// =========================== Actions ==========================
+// =========================== Actions =======================================
 
 // Models the action in which the Engine is turned on, causing
 // the EngineOn message to be sent on the CAN Bus
@@ -91,8 +91,8 @@ pred send_engine_on[s, s' : State] {
 // and the message to be removed from the CAN Bus
 // Precondition: 
 //		bus contains EngineOnMessage
-//		ebs_mode is ModeOff	
-//	
+//		ebs_mode is ModeOff
+//
 // Postcondition: 
 //		bus is now empty
 //		ebs_mode is now ModeOn
@@ -100,7 +100,7 @@ pred send_engine_on[s, s' : State] {
 //    and nothing else changes
 pred recv_engine_on[s, s' : State] {
  
-    // preconditions
+	// preconditions
 	s.bus         = EngineOnMessage and
 	s.ebs_mode    = ModeOff         and
 
@@ -127,7 +127,7 @@ pred recv_engine_on[s, s' : State] {
 //		last_action is SendBrakePressureUpdate
 //    and nothing else changes
 pred send_brake_pressure_update[s, s' : State] {
-    // preconditions
+	// preconditions
 	no s.bus and
 	
 	// postconditions changed
@@ -197,7 +197,7 @@ pred change_foot_pressure[s, s' : State] {
   s'.bus = s.bus
 }
 
-// =========================== Attacker Actions ====================
+// =========================== Attacker Actions ==============================
 
 // Models the actions of a potential attacker that has access to the CAN Bus
 // The only part of the system state that the attacker can possibly change
@@ -228,7 +228,7 @@ pred attacker_action[s, s' : State] {
 }
 
 
-// =========================== State Transitions and Traces =============
+// =========================== State Transitions and Traces ==================
 
 // State transitions occur via the various actions of the system above
 // including those of the attacker.
@@ -259,7 +259,7 @@ fact init_state {
   }
 }
 
-// =========================== Properties =========================
+// =========================== Properties ====================================
 
 // An example assertion and check:
 // Specifies that once the EBS is in the On mode, it never leaves
@@ -407,5 +407,5 @@ check brake_at_correct_pressure for 3 but 8 State
 //	- DDoS
 //		A DDoS attack doesn't fit cleanly into a particular guideword. 
 //		It either qualifies as a NONE (as no message can be added to the bus), 
-//     or as a MORE (due to too many messages being added to the bus), or 
+//		or as a MORE (due to too many messages being added to the bus), or 
 //		perhaps even OTHER THAN (messages other than the intended are sent to the bus).
