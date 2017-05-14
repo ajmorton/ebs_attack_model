@@ -69,13 +69,13 @@ pred Init[s : State] {
 // Models the action in which the Engine is turned on, causing
 // the EngineOn message to be sent on the CAN Bus
 // Precondition: 
-//		engine_mode is ModeOff
+//   - engine_mode is ModeOff
 //
 // Postcondition: 
-//		bus now contains the EngineOn message
-//    engine_mode is now ModeOn
-//    last_action is SendEngineOn
-//    and nothing else changes
+//   - bus now contains the EngineOn message
+//   - engine_mode is now ModeOn
+//   - last_action is SendEngineOn
+//   - and nothing else changes
 pred send_engine_on[s, s' : State] {
   s.engine_mode = ModeOff and
   s'.bus = s.bus + EngineOnMessage and
@@ -90,28 +90,28 @@ pred send_engine_on[s, s' : State] {
 // Brake Controller, causing the EBS system's mode to change from Off to On
 // and the message to be removed from the CAN Bus
 // Precondition: 
-//		bus contains EngineOnMessage
-//		ebs_mode is ModeOff
+//   - bus contains EngineOnMessage
+//   - ebs_mode is ModeOff
 //
 // Postcondition: 
-//		bus is now empty
-//		ebs_mode is now ModeOn
-//		last_action is RecvEngineOn
-//    and nothing else changes
+//   - bus is now empty
+//   - ebs_mode is now ModeOn
+//   - last_action is RecvEngineOn
+//   - and nothing else changes
 pred recv_engine_on[s, s' : State] {
  
 	// preconditions
-	s.bus         = EngineOnMessage and
-	s.ebs_mode    = ModeOff         and
+	s.bus = EngineOnMessage and
+	s.ebs_mode = ModeOff and
 
 	// postcondition changed
-	s'.bus         = s.bus - EngineOnMessage and
-	s'.ebs_mode    = ModeOn                  and
-	s'.last_action = RecvEngineOn            and
+	s'.bus = s.bus - EngineOnMessage and
+	s'.ebs_mode = ModeOn and
+	s'.last_action = RecvEngineOn and
 
 	// postcondition unchanged
-	s'.foot_pressure  = s.foot_pressure  and 
-	s'.engine_mode    = s.engine_mode    and
+	s'.foot_pressure = s.foot_pressure and 
+	s'.engine_mode = s.engine_mode and
 	s'.brake_pressure = s.brake_pressure
 
 }
@@ -120,13 +120,14 @@ pred recv_engine_on[s, s' : State] {
 // from the brake pedal onto the CAN Bus, containing the current
 // foot pressure applied to the brake.
 // Precondition: 
-//		bus is empty
+//   - bus is empty
 //
 // Postcondition: 
-//		bus now contains BrakePressureUpdateMessage, with correct pressure field
-//		last_action is SendBrakePressureUpdate
-//    and nothing else changes
+//   - bus now contains BrakePressureUpdateMessage, with correct pressure field
+//   - last_action is SendBrakePressureUpdate
+//   - and nothing else changes
 pred send_brake_pressure_update[s, s' : State] {
+
 	// preconditions
 	no s.bus and
 	
@@ -149,15 +150,15 @@ pred send_brake_pressure_update[s, s' : State] {
 // by the Brake Controller, causing the current brake pressure to be updated
 // to that contained in the message and the message to be removed from the bus.
 // Precondition: 
-//		bus contains BrakePressureUpdateMessage
-//		ebs_mode is ModeOn
-//		last_action is SendBrakePressureUpdate
+//   - bus contains BrakePressureUpdateMessage
+//   - ebs_mode is ModeOn
+//   - last_action is SendBrakePressureUpdate
 //
 // Postcondition: 
-//		bus is now empty
-//		brake_pressure is now s.bus.pressure
-//    last_action is RecvBrakePressureUpdate
-//    and nothing else changes
+//   - bus is now empty
+//   - brake_pressure is now s.bus.pressure
+//   - last_action is RecvBrakePressureUpdate
+//   - and nothing else changes
 pred recv_brake_pressure_update[s, s' : State] {
   
 	// preconditions
@@ -183,12 +184,12 @@ pred recv_brake_pressure_update[s, s' : State] {
 // Models the action in which the amount of foot pressure applied by the
 // driver to the brake pedal changes
 // Precondition: 
-//		none
+//   - none
 //
 // Postcondition: 
-//		foot_pressure changes arbitrarily (is totally unconstrained)
-//    last_action is ChangeFootPressure
-//    and nothing else changes
+//   - foot_pressure changes arbitrarily (is totally unconstrained)
+//   - last_action is ChangeFootPressure
+//   - and nothing else changes
 pred change_foot_pressure[s, s' : State] {
   s'.ebs_mode = s.ebs_mode and
   s'.engine_mode = s.engine_mode and
@@ -205,26 +206,29 @@ pred change_foot_pressure[s, s' : State] {
 //
 // Attacker's abilities: 
 //		Can utilise replay attack by changing the bus to any previous message,
-//		or can delete messages from the bus
+//		can also delete messages from the bus
 //
 // Precondition: 
-//		none
+//   - none
 //
 // Postcondition: 
-//		bus contains a previous message, or is now empty
-//    last_action is AttackerAction
-//    and nothing else changes
+//   - bus contains a previous message, or is now empty
+//   - last_action is AttackerAction
+//   - and nothing else changes
 pred attacker_action[s, s' : State] {
 
 	// attacker capabilities, replay a previous message or delete message from bus
 	(s'.bus in ord/prevs[s].bus or
  	 no s'.bus) and
+	
+	// last action updated
+  s'.last_action = AttackerAction and
 
+	// everything else unchanged
   s'.ebs_mode = s.ebs_mode and
   s'.brake_pressure = s.brake_pressure and
   s'.foot_pressure = s.foot_pressure and
-  s'.engine_mode = s.engine_mode and
-  s'.last_action = AttackerAction
+  s'.engine_mode = s.engine_mode
 }
 
 
@@ -409,3 +413,5 @@ check brake_at_correct_pressure for 3 but 8 State
 //		It either qualifies as a NONE (as no message can be added to the bus), 
 //		or as a MORE (due to too many messages being added to the bus), or 
 //		perhaps even OTHER THAN (messages other than the intended are sent to the bus).
+//		The associated design item would be "In response to input from a principal, 
+//		a corresponding message is sent on the CANBus"
