@@ -1,12 +1,12 @@
-// ===========================================================================
+// ==========================================================
 // SWEN90010 2017 - Assignment 3 Submission
 // by Andrew Morton 522139, Bishal Sapkota 854950 
-// ===========================================================================
+// ==========================================================
 
 module ebs
 open util/ordering[State] as ord
 
-// =========================== System State ==================================
+// =========================== System State ======================
 // an abstract signature for CAN Bus messages
 abstract sig Message {}
 
@@ -52,7 +52,7 @@ fact {
   all s : State | lone s.bus
 }
 
-// =========================== Initial State =================================
+// =========================== Initial State ========================
 
 // The initial state of the system:
 //   - empty CAN Bus, 
@@ -64,12 +64,13 @@ pred Init[s : State] {
   no s.last_action
 }
 
-// =========================== Actions =======================================
+// =========================== Actions ==========================
 
 // Models the action in which the Engine is turned on, causing
 // the EngineOn message to be sent on the CAN Bus
 // Precondition: 
 //		engine_mode is ModeOff
+//
 // Postcondition: 
 //		bus now contains the EngineOn message
 //    engine_mode is now ModeOn
@@ -90,7 +91,8 @@ pred send_engine_on[s, s' : State] {
 // and the message to be removed from the CAN Bus
 // Precondition: 
 //		bus contains EngineOnMessage
-//		ebs_mode is ModeOff		
+//		ebs_mode is ModeOff	
+//	
 // Postcondition: 
 //		bus is now empty
 //		ebs_mode is now ModeOn
@@ -98,11 +100,11 @@ pred send_engine_on[s, s' : State] {
 //    and nothing else changes
 pred recv_engine_on[s, s' : State] {
  
- // preconditions
+    // preconditions
 	s.bus         = EngineOnMessage and
 	s.ebs_mode    = ModeOff         and
 
-	// postcondition changes
+	// postcondition changed
 	s'.bus         = s.bus - EngineOnMessage and
 	s'.ebs_mode    = ModeOn                  and
 	s'.last_action = RecvEngineOn            and
@@ -119,22 +121,23 @@ pred recv_engine_on[s, s' : State] {
 // foot pressure applied to the brake.
 // Precondition: 
 //		bus is empty
+//
 // Postcondition: 
 //		bus now contains BrakePressureUpdateMessage, with correct pressure field
 //		last_action is SendBrakePressureUpdate
 //    and nothing else changes
 pred send_brake_pressure_update[s, s' : State] {
-  //preconditions
+    // preconditions
 	no s.bus and
 	
-	// postconditions changes
+	// postconditions changed
 	let msg = BrakePressureUpdateMessage | 
 	msg.pressure = s.foot_pressure and
 	s'.bus = msg and
 	
 	s'.last_action = SendBrakePressureUpdate and 
 
-	// postcondition same
+	// postcondition unchanged
 	s'.ebs_mode = s.ebs_mode and
 	s'.foot_pressure = s.foot_pressure and
 	s'.engine_mode = s.engine_mode and
@@ -149,7 +152,7 @@ pred send_brake_pressure_update[s, s' : State] {
 //		bus contains BrakePressureUpdateMessage
 //		ebs_mode is ModeOn
 //		last_action is SendBrakePressureUpdate
-
+//
 // Postcondition: 
 //		bus is now empty
 //		brake_pressure is now s.bus.pressure
@@ -160,16 +163,16 @@ pred recv_brake_pressure_update[s, s' : State] {
 	// preconditions
 	s.bus = BrakePressureUpdateMessage and
 
-	// postcondition changes
+	// postcondition changed
 	s'.bus = s.bus - BrakePressureUpdateMessage and
 	s'.last_action = RecvBrakePressureUpdate and
 
-	// post unchanged
+	// postcondition unchanged
 	s'.foot_pressure = s.foot_pressure and
 	s'.engine_mode = s.engine_mode and
 	s'.ebs_mode = s.ebs_mode and
 	
-	// brake_pressure update rules, update if ebs_mode is on, otherwise don't
+	// brake_pressure update rule: update if ebs_mode is on, otherwise don't
 	(
 		(s.ebs_mode = ModeOn  and s'.brake_pressure = s.bus.pressure ) or
 		(s.ebs_mode = ModeOff and s'.brake_pressure = s.brake_pressure)
@@ -181,6 +184,7 @@ pred recv_brake_pressure_update[s, s' : State] {
 // driver to the brake pedal changes
 // Precondition: 
 //		none
+//
 // Postcondition: 
 //		foot_pressure changes arbitrarily (is totally unconstrained)
 //    last_action is ChangeFootPressure
@@ -193,7 +197,7 @@ pred change_foot_pressure[s, s' : State] {
   s'.bus = s.bus
 }
 
-// =========================== Attacker Actions ==============================
+// =========================== Attacker Actions ====================
 
 // Models the actions of a potential attacker that has access to the CAN Bus
 // The only part of the system state that the attacker can possibly change
@@ -205,6 +209,7 @@ pred change_foot_pressure[s, s' : State] {
 //
 // Precondition: 
 //		none
+//
 // Postcondition: 
 //		bus contains a previous message, or is now empty
 //    last_action is AttackerAction
@@ -223,7 +228,7 @@ pred attacker_action[s, s' : State] {
 }
 
 
-// =========================== State Transitions and Traces ==================
+// =========================== State Transitions and Traces =============
 
 // State transitions occur via the various actions of the system above
 // including those of the attacker.
@@ -254,7 +259,7 @@ fact init_state {
   }
 }
 
-// =========================== Properties ====================================
+// =========================== Properties =========================
 
 // An example assertion and check:
 // Specifies that once the EBS is in the On mode, it never leaves
@@ -347,11 +352,15 @@ assert brake_at_correct_pressure {
 	  all s : State | all s' : ord/next[s] | 
 		s'.bus != s.bus implies
 			(
-				(no s.bus and s'.bus.pressure = s.foot_pressure)  or	  // valid BPUmsg addition
-				(s.ebs_mode = ModeOn  and no s'.bus and s'.brake_pressure = s.bus.pressure) or   // valid BPUmsg removal ModeOn 
-				(s.ebs_mode = ModeOff and no s'.bus and s'.brake_pressure = s.brake_pressure) or // valid BPUmsg removal ModeOff
-				(s.bus + s'.bus = EngineOnMessage) 										  // valid EngineOn process
-			)
+				// valid BPUmsg addition
+				(no s.bus and s'.bus.pressure = s.foot_pressure)  or	
+				// valid BPUmsg removal ModeOn
+				(s.ebs_mode = ModeOn  and no s'.bus and s'.brake_pressure = s.bus.pressure) or
+				// valid BPUmsg removal ModeOff
+				(s.ebs_mode = ModeOff and no s'.bus and s'.brake_pressure = s.brake_pressure) or
+				// valid EngineOn process
+				(s.bus + s'.bus = EngineOnMessage) 
+		)
 }
 
 // NOTE: you will want to adjust these thresholds for your own use
@@ -376,13 +385,16 @@ check brake_at_correct_pressure for 3 but 8 State
 
 // Relationship to our HAZOP study:
 //
+// ** NB : The numbers mentioned below refer to the line items in the HAZOP study submitted
+//             as a part of assignment 2. Link to the document : http://expozit.com/HAZOPS.xlsx
+//
 // Which attacks are covered by our HAZOP?
 //	- Replay attacks
 //		Broadly covered by line item 115 "Messages are sent without action by a principal"
 //		Although Replay attacks were not specificly considered when writing the item
 //
 //	- Deletion
-//		One again broadly covered by line item 109 "No message is sent". 
+//		Once again broadly covered by line item 109 "No message is sent". 
 //		The difference between a message being sent, then deleted before being recieved, 
 //		and a message not being sent at all is largely semantic. In the context of 
 //		the Ada system  
@@ -395,5 +407,5 @@ check brake_at_correct_pressure for 3 but 8 State
 //	- DDoS
 //		A DDoS attack doesn't fit cleanly into a particular guideword. 
 //		It either qualifies as a NONE (as no message can be added to the bus), 
-// 		or as a MORE (due to too many messages being added to the bus), or 
+//     or as a MORE (due to too many messages being added to the bus), or 
 //		perhaps even OTHER THAN (messages other than the intended are sent to the bus).
